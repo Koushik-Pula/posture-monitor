@@ -1,49 +1,778 @@
 ---
-import BaseHead from '../components/BaseHead.astro';
-import Footer from '../components/Footer.astro';
-import Header from '../components/Header.astro';
-import { SITE_DESCRIPTION, SITE_TITLE } from '../consts';
+// src/pages/index.astro
 ---
 
 <!doctype html>
 <html lang="en">
-	<head>
-		<BaseHead title={SITE_TITLE} description={SITE_DESCRIPTION} />
-	</head>
-	<body>
-		<Header />
-		<main>
-			<h1>🧑‍🚀 Hello, Astronaut!</h1>
-			<p>
-				Welcome to the official <a href="https://astro.build/">Astro</a> blog starter template. This template
-				serves as a lightweight, minimally-styled starting point for anyone looking to build a personal
-				website, blog, or portfolio with Astro.
-			</p>
-			<p>
-				This template comes with a few integrations already configured in your
-				<code>astro.config.mjs</code> file. You can customize your setup with
-				<a href="https://astro.build/integrations">Astro Integrations</a> to add tools like Tailwind,
-				React, or Vue to your project.
-			</p>
-			<p>Here are a few ideas on how to get started with the template:</p>
-			<ul>
-				<li>Edit this page in <code>src/pages/index.astro</code></li>
-				<li>Edit the site header items in <code>src/components/Header.astro</code></li>
-				<li>Add your name to the footer in <code>src/components/Footer.astro</code></li>
-				<li>Check out the included blog posts in <code>src/content/blog/</code></li>
-				<li>Customize the blog post page layout in <code>src/layouts/BlogPost.astro</code></li>
-			</ul>
-			<p>
-				Have fun! If you get stuck, remember to
-				<a href="https://docs.astro.build/">read the docs</a>
-				or <a href="https://astro.build/chat">join us on Discord</a> to ask questions.
-			</p>
-			<p>
-				Looking for a blog template with a bit more personality? Check out
-				<a href="https://github.com/Charca/astro-blog-template">astro-blog-template</a>
-				by <a href="https://twitter.com/Charca">Maxi Ferreira</a>.
-			</p>
-		</main>
-		<Footer />
-	</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="OptiSpace runs an on-device AI in your browser to help you keep a healthy viewing distance and take regular eye breaks." />
+    <meta name="theme-color" content="#23a6d5" />
+    <title>OptiSpace | Advanced Posture & Vision AI</title>
+
+    <script is:inline src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh" crossorigin="anonymous"></script>
+    <script is:inline src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils" crossorigin="anonymous"></script>
+    <script is:inline src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils" crossorigin="anonymous"></script>
+
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
+
+      :root {
+        --bg-grad-1: #ee7752; --bg-grad-2: #e73c7e; --bg-grad-3: #23a6d5; --bg-grad-4: #23d5ab;
+        --nav-bg: rgba(255, 255, 255, 0.2); --card-bg: rgba(255, 255, 255, 0.85); --card-border: rgba(255, 255, 255, 0.6);
+        --text-main: #2d3748; --text-muted: #4a5568; --input-bg: #ffffff; --input-border: #e2e8f0;
+        --input-text: #2d3748; --cam-container: rgba(255, 255, 255, 0.3);
+        --modal-bg: rgba(255, 255, 255, 0.95); --accent: #4299e1;
+      }
+
+      [data-theme="dark"] {
+        --bg-grad-1: #0f2027; --bg-grad-2: #203a43; --bg-grad-3: #2c5364; --bg-grad-4: #121212;
+        --nav-bg: rgba(0, 0, 0, 0.3); --card-bg: rgba(26, 32, 44, 0.75); --card-border: rgba(255, 255, 255, 0.1);
+        --text-main: #f7fafc; --text-muted: #a0aec0; --input-bg: #2d3748; --input-border: #4a5568;
+        --input-text: #f7fafc; --cam-container: rgba(0, 0, 0, 0.4);
+        --modal-bg: rgba(26, 32, 44, 0.95);
+      }
+
+      * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+      
+      body { 
+        background: linear-gradient(-45deg, var(--bg-grad-1), var(--bg-grad-2), var(--bg-grad-3), var(--bg-grad-4)); 
+        background-size: 400% 400%; 
+        animation: gradientBG 15s ease infinite; 
+        color: var(--text-main); 
+        display: flex; 
+        flex-direction: column; 
+        min-height: 100vh; 
+        overflow-x: hidden;
+        transition: color 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+      @media (prefers-reduced-motion: reduce) {
+        body { animation: none; }
+        .offline-message { animation: none; }
+      }
+
+      nav { background: var(--nav-bg); backdrop-filter: blur(10px); padding: 15px 40px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--card-border); z-index: 100; transition: background-color 0.6s ease, border-color 0.6s ease; }
+      .logo { font-size: 1.5rem; font-weight: 900; color: #fff; letter-spacing: -1px; text-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+      .nav-right { display: flex; align-items: center; gap: 20px; }
+
+      .glass-card { background: var(--card-bg); backdrop-filter: blur(16px); border: 1px solid var(--card-border); border-radius: 24px; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.15); transition: background-color 0.6s ease, border-color 0.6s ease, box-shadow 0.6s ease; }
+      .container { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 30px 20px; width: 100%; max-width: 1100px; margin: 0 auto; }
+
+      .controls { padding: 20px; display: flex; gap: 15px; width: 100%; margin-bottom: 25px; align-items: center; justify-content: space-between; position: relative; z-index: 50; }
+      
+      /* Dropdown Animations */
+      @keyframes dropdownPop {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.03); }
+        100% { transform: scale(1); }
+      }
+
+      select, .main-btn { 
+        padding: 14px 20px; 
+        border-radius: 12px; 
+        font-size: 0.9rem; 
+        font-weight: 700; 
+        outline: none; 
+        transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s ease, border-color 0.6s ease, background-color 0.6s ease, color 0.6s ease; 
+        border: 2px solid var(--input-border); 
+        background: var(--input-bg); 
+        color: var(--input-text); 
+        cursor: pointer; 
+      }
+      
+      select:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      }
+      
+      select:focus-visible { 
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.5);
+        animation: dropdownPop 0.3s ease-out forwards; 
+      }
+
+      .main-btn:focus-visible, .icon-btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+      .main-btn { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 4px 15px rgba(118, 75, 162, 0.4); flex-grow: 1; text-align: center; }
+      .main-btn:disabled { opacity: 0.6; cursor: wait; }
+      .main-btn.active-btn { background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); box-shadow: 0 4px 15px rgba(255, 8, 68, 0.4); }
+
+      .toggle-group { display: flex; gap: 10px; align-items: center; background: var(--input-bg); padding: 5px 15px; border-radius: 12px; border: 2px solid var(--input-border); transition: background-color 0.6s ease, border-color 0.6s ease; }
+      .toggle-label { font-size: 0.8rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; transition: color 0.6s ease;}
+      .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+      .switch input { opacity: 0; width: 0; height: 0; }
+      .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #cbd5e0; transition: .4s cubic-bezier(0.4, 0, 0.2, 1); border-radius: 34px; }
+      .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s cubic-bezier(0.4, 0, 0.2, 1); border-radius: 50%; }
+      input:checked + .slider { background-color: #4299e1; }
+      input:checked + .slider:before { transform: translateX(20px) scale(1.1); box-shadow: -2px 0 5px rgba(0,0,0,0.2); }
+      .switch input:focus-visible + .slider { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+      .workspace { display: flex; width: 100%; gap: 25px; transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1); align-items: stretch; }
+
+      .camera-container { flex: 1.5; background: var(--cam-container); border-radius: 24px; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 2px solid var(--card-border); box-shadow: inset 0 0 30px rgba(0,0,0,0.1); backdrop-filter: blur(10px); min-height: 400px; transition: background-color 0.6s ease, border-color 0.6s ease; }
+
+      #input_video { display: none; }
+
+      .offline-message { position: absolute; text-align: center; font-weight: 800; z-index: 30; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 180px; height: 180px; border-radius: 50%; background: rgba(255, 255, 255, 0.4); border: 2px solid rgba(255, 255, 255, 0.8); box-shadow: 0 0 40px rgba(255, 255, 255, 0.8), inset 0 0 20px rgba(255, 255, 255, 0.8); color: #2c5282; transition: opacity 0.5s ease, transform 0.5s ease; animation: floatOrb 4s ease-in-out infinite; }
+      .offline-message.hidden { opacity: 0; transform: scale(0.3); pointer-events: none; }
+      .offline-message.error-orb { background: rgba(255, 235, 235, 0.6); border-color: #fc8181; color: #c53030; }
+      @keyframes floatOrb { 0% { transform: translateY(0px) scale(1); } 50% { transform: translateY(-15px) scale(1.05); box-shadow: 0 0 60px rgba(255, 255, 255, 0.9), inset 0 0 30px rgba(255, 255, 255, 0.9); } 100% { transform: translateY(0px) scale(1); } }
+
+      .canvas-wrapper { position: absolute; inset: 0; background: #000; z-index: 20; transform: scale(0); opacity: 0; pointer-events: none; transition: transform 1.2s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.8s ease; }
+      .canvas-wrapper.open { transform: scale(1); opacity: 1; pointer-events: auto; }
+      canvas { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); display: block; }
+
+      .paused-banner { position: absolute; inset: 0; z-index: 25; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); color: #fff; font-weight: 800; text-align: center; padding: 20px; }
+      .paused-banner.show { display: flex; }
+
+      .dashboard { flex: 1; padding: 30px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; text-align: center; gap: 12px; }
+      .gauge-container { position: relative; width: 220px; height: 220px; margin: 10px auto; }
+      .circular-chart { display: block; margin: 0 auto; max-width: 100%; max-height: 250px; }
+      .circle-bg { fill: none; stroke: var(--input-border); stroke-width: 3.8; transition: stroke 0.6s ease; }
+      .zone-arc { fill: none; stroke-width: 3.8; opacity: 0.35; }
+      .circle { fill: none; stroke-width: 2.8; stroke-linecap: round; transition: stroke-dasharray 0.5s ease, stroke 0.5s ease; }
+      .gauge-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; }
+      .gauge-num { font-size: 3.5rem; font-weight: 900; color: var(--text-main); line-height: 1; transition: color 0.6s ease; }
+      .gauge-unit { font-size: 1rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; transition: color 0.6s ease; }
+      .gauge-legend { display: flex; gap: 14px; font-size: 0.7rem; font-weight: 700; color: var(--text-muted); flex-wrap: wrap; justify-content: center; transition: color 0.6s ease; }
+      .gauge-legend span { display: inline-flex; align-items: center; gap: 5px; }
+      .legend-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+
+      .status-badge { padding: 15px; border-radius: 12px; font-weight: 800; width: 100%; text-transform: uppercase; font-size: 0.9rem; background: var(--input-bg); border: 2px solid var(--input-border); color: var(--text-muted); transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
+
+      .timer-row { display: flex; gap: 10px; width: 100%; }
+      .timer-container { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 10px; background: var(--input-bg); border-radius: 12px; border: 1px solid var(--input-border); flex: 1; transition: background-color 0.6s ease, border-color 0.6s ease; }
+      .timer-text { font-weight: 800; color: var(--text-main); font-size: 1.2rem; font-variant-numeric: tabular-nums; transition: color 0.6s ease; }
+      .timer-label { font-size: 0.65rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; transition: color 0.6s ease; }
+
+      .today-strip { font-size: 0.75rem; font-weight: 700; color: var(--text-muted); transition: color 0.6s ease; }
+      .today-strip strong { color: var(--text-main); transition: color 0.6s ease; }
+
+      .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); z-index: 1000; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.4s ease; }
+      .modal-overlay.active { opacity: 1; pointer-events: all; }
+      .modal-content { background: var(--modal-bg); padding: 40px; border-radius: 24px; max-width: 500px; width: 90%; box-shadow: 0 20px 50px rgba(0,0,0,0.3); transform: translateY(20px); transition: transform 0.4s ease, background-color 0.6s ease, border-color 0.6s ease, color 0.6s ease; border: 1px solid var(--card-border); color: var(--text-main); text-align: center; }
+      .modal-overlay.active .modal-content { transform: translateY(0); }
+      .modal-title { font-size: 2rem; font-weight: 900; margin-bottom: 15px; }
+      .modal-text { font-size: 1.1rem; color: var(--text-muted); margin-bottom: 30px; line-height: 1.6; transition: color 0.6s ease; }
+
+      .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+      .stat-box { background: var(--input-bg); padding: 20px; border-radius: 16px; border: 1px solid var(--input-border); transition: background-color 0.6s ease, border-color 0.6s ease; }
+      .stat-val { font-size: 2rem; font-weight: 900; color: #4299e1; }
+      .stat-label { font-size: 0.8rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; transition: color 0.6s ease; }
+      .stat-footnote { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 25px; transition: color 0.6s ease; }
+
+      .toast-container { position: fixed; top: 20px; right: 20px; z-index: 2000; display: flex; flex-direction: column; gap: 10px; max-width: 320px; }
+      .toast { background: var(--modal-bg); border: 1px solid var(--card-border); border-left: 4px solid var(--accent); padding: 14px 18px; border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.2); font-weight: 700; font-size: 0.9rem; color: var(--text-main); animation: slideIn 0.4s ease; transition: background-color 0.6s ease, border-color 0.6s ease, color 0.6s ease; }
+      .toast.error { border-left-color: #e53e3e; }
+      .toast.success { border-left-color: #48bb78; }
+      .toast.fade-out { animation: slideOut 0.4s ease forwards; }
+      @keyframes slideIn { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+      @keyframes slideOut { to { transform: translateX(120%); opacity: 0; } }
+
+      .icon-btn { background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer; line-height: 1; padding: 4px; border-radius: 8px; transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease; }
+      .icon-btn.rotate-anim { transform: rotate(360deg) scale(1.15); }
+
+      .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+      footer { margin-top: auto; padding: 25px 20px; text-align: center; background: var(--nav-bg); backdrop-filter: blur(10px); border-top: 1px solid var(--card-border); transition: background-color 0.6s ease, border-color 0.6s ease; }
+      .footer-links { display: flex; justify-content: center; flex-wrap: wrap; gap: 20px; margin-bottom: 12px; }
+      .footer-links a { color: var(--text-main); text-decoration: none; font-weight: 700; font-size: 0.85rem; transition: color 0.3s ease; }
+      .footer-links a:hover { color: var(--accent); }
+      .footer-copy { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; transition: color 0.6s ease; }
+
+      @media (max-width: 768px) {
+        .controls { flex-direction: column; align-items: stretch; }
+        .workspace { flex-direction: column; }
+        .camera-container { min-height: 300px; }
+        .toast-container { left: 16px; right: 16px; max-width: none; }
+      }
+    </style>
+  </head>
+  <body>
+
+    <nav>
+      <div class="logo">OptiSpace.</div>
+      <div class="nav-right">
+        <button id="theme_toggle" class="icon-btn" title="Toggle night mode" aria-label="Toggle night mode">🌙</button>
+      </div>
+    </nav>
+
+    <div class="container">
+
+      <div class="controls glass-card">
+        <label class="visually-hidden" for="screen_size">Screen size</label>
+        <select id="screen_size" aria-label="Screen size">
+          <option value="laptop">Laptop (13" - 15")</option>
+          <option value="monitor_small">Standard Monitor (21" - 24")</option>
+          <option value="monitor_large">Large Monitor (27"+)</option>
+        </select>
+        
+        <label class="visually-hidden" for="measuring_unit">Measuring Unit</label>
+        <select id="measuring_unit" aria-label="Measuring Unit">
+          <option value="cm">Centimeters (cm)</option>
+          <option value="in">Inches (in)</option>
+        </select>
+
+        <div class="toggle-group">
+          <span class="toggle-label" id="audio_toggle_label">Audio Alerts</span>
+          <label class="switch">
+            <input type="checkbox" id="audio_toggle" checked aria-labelledby="audio_toggle_label">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <button id="toggle_cam" class="main-btn" aria-pressed="false">Start AI Engine</button>
+      </div>
+
+      <div class="workspace" id="main_workspace">
+
+        <div class="camera-container">
+          <div id="offline_msg" class="offline-message">
+            <div id="offline_msg_title">Asleep</div>
+            <div id="offline_msg_sub" style="font-size: 0.7rem; font-weight: 600; opacity: 0.8; margin-top: 5px;">Click Start</div>
+          </div>
+          <div id="canvas_wrapper" class="canvas-wrapper">
+            <canvas id="output_canvas" width="640" height="480" role="img" aria-label="Blurred live camera preview used for on-device distance tracking"></canvas>
+            <div id="paused_banner" class="paused-banner">Paused &mdash; tab is in the background</div>
+          </div>
+          <video id="input_video" playsinline muted></video>
+        </div>
+
+        <div id="distance_dashboard" class="dashboard glass-card">
+          <div style="font-size: 0.9rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">Telemetry</div>
+
+          <div class="gauge-container">
+            <svg viewBox="0 0 36 36" class="circular-chart" aria-hidden="true">
+              <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+              <path id="zone_danger" class="zone-arc" stroke="#fc8181" stroke-dasharray="0, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+              <path id="zone_warning" class="zone-arc" stroke="#f6ad55" stroke-dasharray="0, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+              <path id="zone_optimal" class="zone-arc" stroke="#68d391" stroke-dasharray="0, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+              <path id="gauge_fill" class="circle" stroke="#4299e1" stroke-dasharray="0, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+            </svg>
+            <div class="gauge-text">
+              <span id="distance_value" class="gauge-num">--</span>
+              <span id="unit_label" class="gauge-unit">cm</span>
+            </div>
+          </div>
+          <div class="gauge-legend" aria-hidden="true">
+            <span><i class="legend-dot" style="background:#fc8181;"></i>Too close</span>
+            <span><i class="legend-dot" style="background:#f6ad55;"></i>Move back</span>
+            <span><i class="legend-dot" style="background:#68d391;"></i>Optimal</span>
+          </div>
+
+          <div id="status" class="status-badge" role="status" aria-live="polite">Awaiting Data...</div>
+
+          <div class="timer-row">
+            <div class="timer-container">
+              <span id="session_timer" class="timer-text">00:00</span>
+              <span class="timer-label">Session</span>
+            </div>
+            <div class="timer-container">
+              <span id="break_timer" class="timer-text">20:00</span>
+              <span class="timer-label">Next Break</span>
+            </div>
+          </div>
+
+          <div class="today-strip" id="today_strip">Today: <strong>0m</strong> active</div>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      <div class="footer-links">
+        <a href="#contact">Contact Us</a>
+        <a href="#privacy">Privacy Policy</a>
+        <a href="#terms">Terms of Service</a>
+      </div>
+      <div class="footer-copy">&copy; 2026 OptiSpace. All rights reserved.</div>
+    </footer>
+
+    <div class="toast-container" id="toast_container" aria-live="polite"></div>
+
+    <div id="onboarding_modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="onboarding_title">
+      <div class="modal-content">
+        <div class="modal-title" id="onboarding_title">Welcome to OptiSpace.</div>
+        <div class="modal-text">
+          This AI runs entirely in your browser to protect your eyes and posture.
+          <br><br>
+          <strong>1. Privacy First:</strong> Your video never leaves your device and is never recorded &mdash; only a blurred preview is shown.<br>
+          <strong>2. Smoothed Telemetry:</strong> Distance fluctuations are filtered out for stability.<br>
+          <strong>3. Sustained Alerts:</strong> Prolonged bad posture triggers alerts, and we'll remind you to take a 20-second eye break every 20 minutes.
+        </div>
+        <button id="close_onboarding" class="main-btn" style="width:100%;">Let's Go</button>
+      </div>
+    </div>
+
+    <div id="analytics_modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="analytics_title">
+      <div class="modal-content">
+        <div class="modal-title" id="analytics_title">Session Complete</div>
+        <div class="stat-grid">
+          <div class="stat-box">
+            <div id="stat_time" class="stat-val">0m</div>
+            <div class="stat-label">Active Time</div>
+          </div>
+          <div class="stat-box">
+            <div id="stat_bad_posture" class="stat-val" style="color:#e53e3e;">0s</div>
+            <div class="stat-label">Time Bad Posture</div>
+          </div>
+        </div>
+        <div class="stat-footnote" id="today_footnote">Today's total: 0m active, 0s poor posture.</div>
+        <button id="close_analytics" class="main-btn" style="width:100%;">Close</button>
+      </div>
+    </div>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        const videoElement = document.getElementById('input_video');
+        const canvasElement = document.getElementById('output_canvas');
+        const canvasCtx = canvasElement.getContext('2d');
+        const canvasWrapperEl = document.getElementById('canvas_wrapper');
+        const offlineMsgEl = document.getElementById('offline_msg');
+        const offlineTitleEl = document.getElementById('offline_msg_title');
+        const offlineSubEl = document.getElementById('offline_msg_sub');
+        const pausedBannerEl = document.getElementById('paused_banner');
+        const toggleBtn = document.getElementById('toggle_cam');
+        const distanceValueEl = document.getElementById('distance_value');
+        const statusEl = document.getElementById('status');
+        const gaugeFill = document.getElementById('gauge_fill');
+        const zoneDanger = document.getElementById('zone_danger');
+        const zoneWarning = document.getElementById('zone_warning');
+        const zoneOptimal = document.getElementById('zone_optimal');
+        const themeToggle = document.getElementById('theme_toggle');
+        const audioToggle = document.getElementById('audio_toggle');
+        
+        const screenSizeEl = document.getElementById('screen_size');
+        const unitSelectEl = document.getElementById('measuring_unit');
+        const unitLabelEl = document.getElementById('unit_label');
+        
+        const timerEl = document.getElementById('session_timer');
+        const breakTimerEl = document.getElementById('break_timer');
+        const todayStripEl = document.getElementById('today_strip');
+        const todayFootnoteEl = document.getElementById('today_footnote');
+        const toastContainer = document.getElementById('toast_container');
+
+        const onboardingModal = document.getElementById('onboarding_modal');
+        const analyticsModal = document.getElementById('analytics_modal');
+
+        let isRunning = false;
+        let isPaused = false;
+        let camera = null;
+        let audioCtx = null;
+
+        let sessionStartTime = null;
+        let sessionInterval = null;
+        let isBeeping = false;
+        let smoothedDistance = null; 
+
+        let badPostureSeconds = 0;
+        let dangerStartTime = null;
+        let lastFrameTimestamp = null;
+
+        const BREAK_INTERVAL_SECONDS = 20 * 60;
+        const AVERAGE_IRIS_SIZE_MM = 11.7;
+        const FOCAL_LENGTH = 600;
+        const GAUGE_SCALE_CM = 100; 
+        const HEAD_TILT_THRESHOLD_DEGREES = 12; // Degrees of tilt before warning
+
+        const ergonomics = {
+          laptop: { tooClose: 40, optimalMin: 50 },
+          monitor_small: { tooClose: 50, optimalMin: 60 },
+          monitor_large: { tooClose: 60, optimalMin: 70 }
+        };
+
+        const savedScreenSize = localStorage.getItem('opti_screen_size');
+        if (savedScreenSize && ergonomics[savedScreenSize]) {
+          screenSizeEl.value = savedScreenSize;
+        }
+        
+        const savedUnit = localStorage.getItem('opti_measuring_unit');
+        if (savedUnit) {
+          unitSelectEl.value = savedUnit;
+          unitLabelEl.innerText = savedUnit;
+        }
+
+        const savedAudio = localStorage.getItem('opti_audio');
+        if (savedAudio !== null) {
+          audioToggle.checked = savedAudio === 'true';
+        }
+        
+        screenSizeEl.addEventListener('change', () => {
+          localStorage.setItem('opti_screen_size', screenSizeEl.value);
+          dangerStartTime = null; 
+          updateGaugeZones();
+        });
+        
+        unitSelectEl.addEventListener('change', () => {
+          localStorage.setItem('opti_measuring_unit', unitSelectEl.value);
+          unitLabelEl.innerText = unitSelectEl.value;
+          if (!isRunning || isPaused) distanceValueEl.innerText = '--';
+        });
+
+        audioToggle.addEventListener('change', () => {
+          localStorage.setItem('opti_audio', String(audioToggle.checked));
+        });
+
+        function showToast(message, type = 'info', duration = 6000) {
+          const el = document.createElement('div');
+          el.className = `toast ${type}`;
+          el.textContent = message;
+          toastContainer.appendChild(el);
+          setTimeout(() => {
+            el.classList.add('fade-out');
+            setTimeout(() => el.remove(), 400);
+          }, duration);
+        }
+
+        if (!localStorage.getItem('opti_visited')) {
+          onboardingModal.classList.add('active');
+        }
+        function dismissOnboarding() {
+          onboardingModal.classList.remove('active');
+          localStorage.setItem('opti_visited', 'true');
+        }
+        document.getElementById('close_onboarding').addEventListener('click', dismissOnboarding);
+        onboardingModal.addEventListener('click', (e) => { if (e.target === onboardingModal) dismissOnboarding(); });
+
+        document.getElementById('close_analytics').addEventListener('click', () => {
+          analyticsModal.classList.remove('active');
+        });
+        analyticsModal.addEventListener('click', (e) => { if (e.target === analyticsModal) analyticsModal.classList.remove('active'); });
+
+        document.addEventListener('keydown', (e) => {
+          if (e.key !== 'Escape') return;
+          if (onboardingModal.classList.contains('active')) dismissOnboarding();
+          if (analyticsModal.classList.contains('active')) analyticsModal.classList.remove('active');
+        });
+
+        if (localStorage.getItem('opti_theme') === 'dark') {
+          document.documentElement.setAttribute('data-theme', 'dark');
+          themeToggle.innerText = '☀️';
+        }
+        themeToggle.addEventListener('click', () => {
+          themeToggle.classList.add('rotate-anim');
+          setTimeout(() => themeToggle.classList.remove('rotate-anim'), 500);
+          
+          if (document.documentElement.getAttribute('data-theme') === 'dark') {
+            document.documentElement.removeAttribute('data-theme');
+            localStorage.setItem('opti_theme', 'light');
+            themeToggle.innerText = '🌙';
+          } else {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            localStorage.setItem('opti_theme', 'dark');
+            themeToggle.innerText = '☀️';
+          }
+        });
+
+        function getAudioContext() {
+          if (!audioCtx) {
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContextClass();
+          }
+          if (audioCtx.state === 'suspended') audioCtx.resume();
+          return audioCtx;
+        }
+
+        function playTone(freqStart, freqEnd) {
+          if (!audioToggle.checked) return;
+          try {
+            const ctx = getAudioContext();
+            const osc = ctx.createOscillator();
+            const gainNode = ctx.createGain();
+            osc.connect(gainNode);
+            gainNode.connect(ctx.destination);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freqStart, ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(freqEnd, ctx.currentTime + 0.1);
+            gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.5);
+          } catch (e) { }
+        }
+
+        function playWarningBeep() {
+          if (isBeeping) return;
+          isBeeping = true;
+          playTone(440, 880);
+          setTimeout(() => { isBeeping = false; }, 2000);
+        }
+
+        function playBreakChime() {
+          if (!audioToggle.checked) return;
+          playTone(660, 990); 
+          
+          if ('speechSynthesis' in window) {
+            const msg = new SpeechSynthesisUtterance("Time for a break. Please look at something 20 feet away, for 20 seconds.");
+            msg.rate = 0.9;
+            window.speechSynthesis.speak(msg);
+          }
+        }
+
+        function formatMMSS(totalSeconds) {
+          const s = Math.max(0, Math.floor(totalSeconds));
+          const m = Math.floor(s / 60).toString().padStart(2, '0');
+          const sec = (s % 60).toString().padStart(2, '0');
+          return `${m}:${sec}`;
+        }
+        function formatDuration(totalSeconds) {
+          const s = Math.max(0, Math.round(totalSeconds));
+          if (s < 60) return `${s}s`;
+          const m = Math.floor(s / 60);
+          const rem = s % 60;
+          return rem ? `${m}m ${rem}s` : `${m}m`;
+        }
+
+        function todayKey() {
+          return new Date().toISOString().slice(0, 10);
+        }
+        function loadDailyStats() {
+          try {
+            const raw = JSON.parse(localStorage.getItem('opti_daily_stats') || 'null');
+            if (raw && raw.date === todayKey()) return raw;
+          } catch (e) { }
+          return { date: todayKey(), activeSeconds: 0, badSeconds: 0 };
+        }
+        function saveDailyStats(stats) {
+          localStorage.setItem('opti_daily_stats', JSON.stringify(stats));
+        }
+        function renderTodayStrip() {
+          const stats = loadDailyStats();
+          todayStripEl.innerHTML = `Today: <strong>${formatDuration(stats.activeSeconds)}</strong> active`;
+        }
+        renderTodayStrip();
+
+        function updateTimer() {
+          if (!sessionStartTime) return;
+          const elapsedSecs = (Date.now() - sessionStartTime) / 1000;
+          timerEl.innerText = formatMMSS(elapsedSecs);
+
+          const secondsSinceBreak = elapsedSecs % BREAK_INTERVAL_SECONDS;
+          const remaining = BREAK_INTERVAL_SECONDS - secondsSinceBreak;
+          breakTimerEl.innerText = formatMMSS(remaining);
+
+          if (Math.floor(elapsedSecs) > 0 && Math.floor(elapsedSecs) % BREAK_INTERVAL_SECONDS === 0) {
+            showToast('Eye break time \u2014 look at something 20 feet away for 20 seconds.', 'info', 8000);
+            playBreakChime();
+          }
+        }
+
+        function updateGaugeZones() {
+          const limits = ergonomics[screenSizeEl.value];
+          const dangerLen = Math.min((limits.tooClose / GAUGE_SCALE_CM) * 100, 100);
+          const warningLen = Math.min((limits.optimalMin / GAUGE_SCALE_CM) * 100, 100) - dangerLen;
+          const optimalLen = Math.max(100 - dangerLen - warningLen, 0);
+
+          zoneDanger.setAttribute('stroke-dasharray', `${dangerLen}, 100`);
+          zoneDanger.setAttribute('stroke-dashoffset', '0');
+
+          zoneWarning.setAttribute('stroke-dasharray', `${warningLen}, 100`);
+          zoneWarning.setAttribute('stroke-dashoffset', `${-dangerLen}`);
+
+          zoneOptimal.setAttribute('stroke-dasharray', `${optimalLen}, 100`);
+          zoneOptimal.setAttribute('stroke-dashoffset', `${-(dangerLen + warningLen)}`);
+        }
+        updateGaugeZones();
+
+        const faceMesh = new FaceMesh({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}` });
+        faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+        faceMesh.onResults(onResults);
+
+        toggleBtn.addEventListener('click', () => {
+          if (!isRunning) startCamera();
+          else stopCamera();
+        });
+
+        document.addEventListener('visibilitychange', () => {
+          if (!isRunning) return;
+          isPaused = document.hidden;
+          pausedBannerEl.classList.toggle('show', isPaused);
+        });
+
+        function setOfflineOrb(title, sub, isError) {
+          offlineTitleEl.innerText = title;
+          offlineSubEl.innerText = sub;
+          offlineMsgEl.classList.toggle('error-orb', !!isError);
+        }
+
+        async function startCamera() {
+          toggleBtn.disabled = true;
+          toggleBtn.innerText = 'Requesting Camera...';
+
+          if (!camera) {
+            camera = new Camera(videoElement, {
+              onFrame: async () => { await faceMesh.send({ image: videoElement }); },
+              width: 640,
+              height: 480
+            });
+          }
+
+          try {
+            await camera.start();
+          } catch (err) {
+            toggleBtn.disabled = false;
+            toggleBtn.innerText = 'Start AI Engine';
+            setOfflineOrb('Camera Blocked', 'Check browser permissions', true);
+            showToast('Could not access your camera. Please allow camera permissions and try again.', 'error', 8000);
+            return;
+          }
+
+          isRunning = true;
+          isPaused = false;
+
+          sessionStartTime = Date.now();
+          badPostureSeconds = 0;
+          dangerStartTime = null;
+          lastFrameTimestamp = null;
+          smoothedDistance = null;
+          sessionInterval = setInterval(updateTimer, 1000);
+          breakTimerEl.innerText = formatMMSS(BREAK_INTERVAL_SECONDS);
+
+          toggleBtn.disabled = false;
+          toggleBtn.innerText = 'Stop Session';
+          toggleBtn.setAttribute('aria-pressed', 'true');
+          toggleBtn.classList.add('active-btn');
+          canvasWrapperEl.classList.add('open');
+          offlineMsgEl.classList.add('hidden');
+          pausedBannerEl.classList.remove('show');
+          statusEl.innerText = 'Initializing AI...';
+        }
+
+        function stopCamera() {
+          if (camera) camera.stop();
+          isRunning = false;
+          isPaused = false;
+          clearInterval(sessionInterval);
+          pausedBannerEl.classList.remove('show');
+
+          const elapsedSeconds = (Date.now() - sessionStartTime) / 1000;
+          document.getElementById('stat_time').innerText = formatDuration(elapsedSeconds);
+          document.getElementById('stat_bad_posture').innerText = formatDuration(badPostureSeconds);
+
+          const stats = loadDailyStats();
+          stats.activeSeconds += elapsedSeconds;
+          stats.badSeconds += badPostureSeconds;
+          saveDailyStats(stats);
+          renderTodayStrip();
+          todayFootnoteEl.innerText = `Today's total: ${formatDuration(stats.activeSeconds)} active, ${formatDuration(stats.badSeconds)} bad posture.`;
+
+          analyticsModal.classList.add('active');
+
+          toggleBtn.innerText = 'Start AI Engine';
+          toggleBtn.setAttribute('aria-pressed', 'false');
+          toggleBtn.classList.remove('active-btn');
+
+          canvasWrapperEl.classList.remove('open');
+          setOfflineOrb('Asleep', 'Click Start', false);
+          offlineMsgEl.classList.remove('hidden');
+
+          distanceValueEl.innerText = '--';
+          gaugeFill.setAttribute('stroke-dasharray', `0, 100`);
+          statusEl.innerText = 'System Paused';
+          statusEl.style.backgroundColor = 'var(--input-bg)';
+          statusEl.style.color = 'var(--text-muted)';
+          statusEl.style.borderColor = 'var(--input-border)';
+          distanceValueEl.style.color = 'var(--text-main)';
+        }
+
+        function onResults(results) {
+          if (!isRunning || isPaused) return;
+
+          canvasCtx.save();
+          canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+
+          // Render the privacy blur
+          canvasCtx.filter = 'blur(15px) brightness(0.6)';
+          canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+          canvasCtx.filter = 'none';
+
+          const now = Date.now();
+          const dt = lastFrameTimestamp ? (now - lastFrameTimestamp) / 1000 : 0;
+          lastFrameTimestamp = now;
+
+          if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+            const landmarks = results.multiFaceLandmarks[0];
+            const rightIrisContours = [468, 469, 470, 471, 472].map(i => landmarks[i]);
+            drawConnectors(canvasCtx, rightIrisContours, [[0, 1], [1, 2], [2, 3], [3, 0]], { color: '#4299e1', lineWidth: 3 });
+
+            // Posture Check 1: Distance calculation
+            const dx = (rightIrisContours[0].x - rightIrisContours[2].x) * canvasElement.width;
+            const dy = (rightIrisContours[0].y - rightIrisContours[2].y) * canvasElement.height;
+            const irisWidthPixels = Math.sqrt(dx * dx + dy * dy);
+
+            // Posture Check 2: Head Tilt Calculation
+            const leftEyeCorner = landmarks[33];
+            const rightEyeCorner = landmarks[263];
+            const eyeDx = rightEyeCorner.x - leftEyeCorner.x;
+            const eyeDy = rightEyeCorner.y - leftEyeCorner.y;
+            const headTiltAngle = Math.abs(Math.atan2(eyeDy, eyeDx) * (180 / Math.PI));
+
+            if (irisWidthPixels > 0) {
+              const rawDistanceCm = ((FOCAL_LENGTH * AVERAGE_IRIS_SIZE_MM) / irisWidthPixels) / 10;
+
+              if (smoothedDistance === null) {
+                smoothedDistance = rawDistanceCm;
+              } else {
+                const alpha = 0.2;
+                smoothedDistance = alpha * rawDistanceCm + (1 - alpha) * smoothedDistance;
+              }
+
+              const limits = ergonomics[screenSizeEl.value];
+              const fillPct = Math.min((smoothedDistance / GAUGE_SCALE_CM) * 100, 100);
+              gaugeFill.setAttribute('stroke-dasharray', `${fillPct}, 100`);
+              
+              let displayDistance = smoothedDistance;
+              if (unitSelectEl.value === 'in') {
+                displayDistance = smoothedDistance / 2.54;
+              }
+              distanceValueEl.innerText = displayDistance.toFixed(1);
+
+              const isTooClose = smoothedDistance < limits.tooClose;
+              const isTilted = headTiltAngle > HEAD_TILT_THRESHOLD_DEGREES;
+
+              if (isTooClose || isTilted) {
+                if (!dangerStartTime) dangerStartTime = now;
+                const sustainedDuration = (now - dangerStartTime) / 1000;
+
+                if (sustainedDuration > 5) {
+                  badPostureSeconds += dt;
+                  const reason = isTilted ? 'Head Tilt' : 'Too Close';
+                  statusEl.innerText = `\u26a0\ufe0f Danger: ${reason} (${Math.floor(sustainedDuration)}s)`;
+                  playWarningBeep();
+                } else {
+                  statusEl.innerText = isTilted ? 'Warning: Fix Head Posture' : 'Danger: Too Close';
+                }
+
+                statusEl.style.backgroundColor = '#fff5f5'; statusEl.style.color = '#c53030'; statusEl.style.borderColor = '#fc8181';
+                gaugeFill.setAttribute('stroke', '#fc8181');
+                distanceValueEl.style.color = '#e53e3e';
+
+              } else if (smoothedDistance < limits.optimalMin) {
+                dangerStartTime = null;
+                statusEl.innerText = 'Warning: Move Back';
+                statusEl.style.backgroundColor = '#fffaf0'; statusEl.style.color = '#c05621'; statusEl.style.borderColor = '#f6ad55';
+                gaugeFill.setAttribute('stroke', '#f6ad55');
+                distanceValueEl.style.color = '#dd6b20';
+              } else {
+                dangerStartTime = null;
+                statusEl.innerText = 'Optimal Distance & Posture';
+                statusEl.style.backgroundColor = '#f0fff4'; statusEl.style.color = '#276749'; statusEl.style.borderColor = '#68d391';
+                gaugeFill.setAttribute('stroke', '#48bb78');
+                distanceValueEl.style.color = 'var(--text-main)';
+              }
+            }
+          } else {
+            distanceValueEl.innerText = '--';
+            statusEl.innerText = 'Face not found';
+            statusEl.style.backgroundColor = 'var(--input-bg)'; statusEl.style.color = 'var(--text-muted)';
+            gaugeFill.setAttribute('stroke-dasharray', `0, 100`);
+            distanceValueEl.style.color = 'var(--text-main)';
+            dangerStartTime = null;
+          }
+          canvasCtx.restore();
+        }
+      });
+    </script>
+  </body>
 </html>
