@@ -62,40 +62,39 @@
 
       .controls { padding: 20px; display: flex; gap: 15px; width: 100%; margin-bottom: 25px; align-items: center; justify-content: space-between; position: relative; z-index: 50; }
       
-      /* Dropdown Animations */
-      @keyframes dropdownPop {
-        0% { transform: scale(1); }
-        50% { transform: scale(1.03); }
-        100% { transform: scale(1); }
+      /* =========================================
+         Custom Animated Dropdowns 
+         ========================================= */
+      .custom-dropdown { position: relative; flex: 1; min-width: 180px; user-select: none; }
+      .dropdown-selected { 
+        padding: 14px 20px; border-radius: 12px; font-size: 0.9rem; font-weight: 700; 
+        border: 2px solid var(--input-border); background: var(--input-bg); color: var(--input-text); 
+        cursor: pointer; display: flex; justify-content: space-between; align-items: center; 
+        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); 
       }
-
-      select, .main-btn { 
-        padding: 14px 20px; 
-        border-radius: 12px; 
-        font-size: 0.9rem; 
-        font-weight: 700; 
-        outline: none; 
-        transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s ease, border-color 0.6s ease, background-color 0.6s ease, color 0.6s ease; 
-        border: 2px solid var(--input-border); 
-        background: var(--input-bg); 
-        color: var(--input-text); 
-        cursor: pointer; 
-      }
+      .dropdown-selected::after { content: '▼'; font-size: 0.6rem; transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); opacity: 0.7; margin-left: 10px; }
+      .dropdown-selected:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); }
       
-      select:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-      }
+      /* Open State */
+      .custom-dropdown.open .dropdown-selected { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.3); transform: translateY(0); }
+      .custom-dropdown.open .dropdown-selected::after { transform: rotate(180deg); opacity: 1; color: var(--accent); }
       
-      select:focus-visible { 
-        outline: none;
-        border-color: var(--accent);
-        box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.5);
-        animation: dropdownPop 0.3s ease-out forwards; 
+      /* Dropdown List */
+      .dropdown-list { 
+        position: absolute; top: calc(100% + 10px); left: 0; right: 0; 
+        background: var(--input-bg); border-radius: 12px; border: 1px solid var(--input-border); 
+        box-shadow: 0 15px 35px rgba(0,0,0,0.2); overflow: hidden; z-index: 200;
+        opacity: 0; pointer-events: none; transform: translateY(-15px) scale(0.98); 
+        transition: opacity 0.3s ease, transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
       }
+      .custom-dropdown.open .dropdown-list { opacity: 1; pointer-events: auto; transform: translateY(0) scale(1); }
+      
+      .dropdown-item { padding: 14px 20px; font-size: 0.85rem; font-weight: 600; color: var(--text-main); cursor: pointer; transition: background 0.2s ease, color 0.2s ease, padding-left 0.2s ease; border-bottom: 1px solid var(--input-border); }
+      .dropdown-item:last-child { border-bottom: none; }
+      .dropdown-item:hover, .dropdown-item.active { background: var(--accent); color: #fff; padding-left: 25px; }
 
+      .main-btn { padding: 14px 20px; border-radius: 12px; font-size: 0.9rem; font-weight: 700; outline: none; transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s ease, background-color 0.6s ease, color 0.6s ease; cursor: pointer; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 4px 15px rgba(118, 75, 162, 0.4); flex-grow: 1; text-align: center; }
       .main-btn:focus-visible, .icon-btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-      .main-btn { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 4px 15px rgba(118, 75, 162, 0.4); flex-grow: 1; text-align: center; }
       .main-btn:disabled { opacity: 0.6; cursor: wait; }
       .main-btn.active-btn { background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); box-shadow: 0 4px 15px rgba(255, 8, 68, 0.4); }
 
@@ -187,6 +186,7 @@
         .workspace { flex-direction: column; }
         .camera-container { min-height: 300px; }
         .toast-container { left: 16px; right: 16px; max-width: none; }
+        .custom-dropdown { min-width: 100%; }
       }
     </style>
   </head>
@@ -202,18 +202,26 @@
     <div class="container">
 
       <div class="controls glass-card">
-        <label class="visually-hidden" for="screen_size">Screen size</label>
-        <select id="screen_size" aria-label="Screen size">
-          <option value="laptop">Laptop (13" - 15")</option>
-          <option value="monitor_small">Standard Monitor (21" - 24")</option>
-          <option value="monitor_large">Large Monitor (27"+)</option>
-        </select>
         
-        <label class="visually-hidden" for="measuring_unit">Measuring Unit</label>
-        <select id="measuring_unit" aria-label="Measuring Unit">
-          <option value="cm">Centimeters (cm)</option>
-          <option value="in">Inches (in)</option>
-        </select>
+        <!-- Custom Animated Dropdown: Screen Size -->
+        <div class="custom-dropdown" id="dropdown_screen">
+          <div class="dropdown-selected" id="selected_screen">Laptop (13" - 15")</div>
+          <div class="dropdown-list">
+            <div class="dropdown-item" data-value="phone">Phone (4" - 7")</div>
+            <div class="dropdown-item active" data-value="laptop">Laptop (13" - 15")</div>
+            <div class="dropdown-item" data-value="monitor_small">Standard Monitor (21" - 24")</div>
+            <div class="dropdown-item" data-value="monitor_large">Large Monitor (27"+)</div>
+          </div>
+        </div>
+        
+        <!-- Custom Animated Dropdown: Unit -->
+        <div class="custom-dropdown" id="dropdown_unit">
+          <div class="dropdown-selected" id="selected_unit">Centimeters (cm)</div>
+          <div class="dropdown-list">
+            <div class="dropdown-item active" data-value="cm">Centimeters (cm)</div>
+            <div class="dropdown-item" data-value="in">Inches (in)</div>
+          </div>
+        </div>
 
         <div class="toggle-group">
           <span class="toggle-label" id="audio_toggle_label">Audio Alerts</span>
@@ -343,8 +351,6 @@
         const themeToggle = document.getElementById('theme_toggle');
         const audioToggle = document.getElementById('audio_toggle');
         
-        const screenSizeEl = document.getElementById('screen_size');
-        const unitSelectEl = document.getElementById('measuring_unit');
         const unitLabelEl = document.getElementById('unit_label');
         
         const timerEl = document.getElementById('session_timer');
@@ -369,47 +375,90 @@
         let badPostureSeconds = 0;
         let dangerStartTime = null;
         let lastFrameTimestamp = null;
+        
+        // Active Values
+        let currentScreenSize = 'laptop';
+        let currentUnit = 'cm';
 
         const BREAK_INTERVAL_SECONDS = 20 * 60;
         const AVERAGE_IRIS_SIZE_MM = 11.7;
         const FOCAL_LENGTH = 600;
         const GAUGE_SCALE_CM = 100; 
-        const HEAD_TILT_THRESHOLD_DEGREES = 12; // Degrees of tilt before warning
+        const HEAD_TILT_THRESHOLD_DEGREES = 12; 
 
         const ergonomics = {
+          phone: { tooClose: 30, optimalMin: 40 },
           laptop: { tooClose: 40, optimalMin: 50 },
           monitor_small: { tooClose: 50, optimalMin: 60 },
           monitor_large: { tooClose: 60, optimalMin: 70 }
         };
 
-        const savedScreenSize = localStorage.getItem('opti_screen_size');
-        if (savedScreenSize && ergonomics[savedScreenSize]) {
-          screenSizeEl.value = savedScreenSize;
+        // --- Custom Dropdown Logic ---
+        function setupDropdown(dropdownId, selectedId, storageKey, onSelectCallback) {
+          const dropdown = document.getElementById(dropdownId);
+          const selected = document.getElementById(selectedId);
+          const items = dropdown.querySelectorAll('.dropdown-item');
+          
+          dropdown.addEventListener('click', (e) => {
+            e.stopPropagation(); // prevent document click from closing immediately
+            // Close other open dropdowns
+            document.querySelectorAll('.custom-dropdown').forEach(d => {
+              if (d !== dropdown) d.classList.remove('open');
+            });
+            dropdown.classList.toggle('open');
+          });
+
+          items.forEach(item => {
+            item.addEventListener('click', (e) => {
+              const value = item.getAttribute('data-value');
+              const text = item.innerText;
+              
+              selected.innerText = text;
+              items.forEach(i => i.classList.remove('active'));
+              item.classList.add('active');
+              
+              localStorage.setItem(storageKey, value);
+              onSelectCallback(value, text);
+            });
+          });
+          
+          // Load Saved Value
+          const savedValue = localStorage.getItem(storageKey);
+          if (savedValue) {
+            const targetItem = Array.from(items).find(i => i.getAttribute('data-value') === savedValue);
+            if (targetItem) {
+              selected.innerText = targetItem.innerText;
+              items.forEach(i => i.classList.remove('active'));
+              targetItem.classList.add('active');
+              onSelectCallback(savedValue, targetItem.innerText);
+            }
+          }
         }
         
-        const savedUnit = localStorage.getItem('opti_measuring_unit');
-        if (savedUnit) {
-          unitSelectEl.value = savedUnit;
-          unitLabelEl.innerText = savedUnit;
-        }
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', () => {
+          document.querySelectorAll('.custom-dropdown').forEach(d => d.classList.remove('open'));
+        });
+
+        setupDropdown('dropdown_screen', 'selected_screen', 'opti_screen_size', (val) => {
+          currentScreenSize = val;
+          dangerStartTime = null; 
+          updateGaugeZones();
+        });
+
+        setupDropdown('dropdown_unit', 'selected_unit', 'opti_measuring_unit', (val) => {
+          currentUnit = val;
+          unitLabelEl.innerText = val;
+          if (!isRunning || isPaused) distanceValueEl.innerText = '--';
+        });
+
+        // ---------- End Custom Dropdown Logic ----------
 
         const savedAudio = localStorage.getItem('opti_audio');
         if (savedAudio !== null) {
           audioToggle.checked = savedAudio === 'true';
         }
         
-        screenSizeEl.addEventListener('change', () => {
-          localStorage.setItem('opti_screen_size', screenSizeEl.value);
-          dangerStartTime = null; 
-          updateGaugeZones();
-        });
-        
-        unitSelectEl.addEventListener('change', () => {
-          localStorage.setItem('opti_measuring_unit', unitSelectEl.value);
-          unitLabelEl.innerText = unitSelectEl.value;
-          if (!isRunning || isPaused) distanceValueEl.innerText = '--';
-        });
-
         audioToggle.addEventListener('change', () => {
           localStorage.setItem('opti_audio', String(audioToggle.checked));
         });
@@ -559,7 +608,7 @@
         }
 
         function updateGaugeZones() {
-          const limits = ergonomics[screenSizeEl.value];
+          const limits = ergonomics[currentScreenSize];
           const dangerLen = Math.min((limits.tooClose / GAUGE_SCALE_CM) * 100, 100);
           const warningLen = Math.min((limits.optimalMin / GAUGE_SCALE_CM) * 100, 100) - dangerLen;
           const optimalLen = Math.max(100 - dangerLen - warningLen, 0);
@@ -696,12 +745,10 @@
             const rightIrisContours = [468, 469, 470, 471, 472].map(i => landmarks[i]);
             drawConnectors(canvasCtx, rightIrisContours, [[0, 1], [1, 2], [2, 3], [3, 0]], { color: '#4299e1', lineWidth: 3 });
 
-            // Posture Check 1: Distance calculation
             const dx = (rightIrisContours[0].x - rightIrisContours[2].x) * canvasElement.width;
             const dy = (rightIrisContours[0].y - rightIrisContours[2].y) * canvasElement.height;
             const irisWidthPixels = Math.sqrt(dx * dx + dy * dy);
 
-            // Posture Check 2: Head Tilt Calculation
             const leftEyeCorner = landmarks[33];
             const rightEyeCorner = landmarks[263];
             const eyeDx = rightEyeCorner.x - leftEyeCorner.x;
@@ -718,12 +765,12 @@
                 smoothedDistance = alpha * rawDistanceCm + (1 - alpha) * smoothedDistance;
               }
 
-              const limits = ergonomics[screenSizeEl.value];
+              const limits = ergonomics[currentScreenSize];
               const fillPct = Math.min((smoothedDistance / GAUGE_SCALE_CM) * 100, 100);
               gaugeFill.setAttribute('stroke-dasharray', `${fillPct}, 100`);
               
               let displayDistance = smoothedDistance;
-              if (unitSelectEl.value === 'in') {
+              if (currentUnit === 'in') {
                 displayDistance = smoothedDistance / 2.54;
               }
               distanceValueEl.innerText = displayDistance.toFixed(1);
