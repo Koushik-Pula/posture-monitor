@@ -62,9 +62,6 @@
 
       .controls { padding: 20px; display: flex; gap: 15px; width: 100%; margin-bottom: 25px; align-items: center; justify-content: space-between; position: relative; z-index: 50; }
       
-      /* =========================================
-         Custom Animated Dropdowns 
-         ========================================= */
       .custom-dropdown { position: relative; flex: 1; min-width: 180px; user-select: none; }
       .dropdown-selected { 
         padding: 14px 20px; border-radius: 12px; font-size: 0.9rem; font-weight: 700; 
@@ -75,11 +72,9 @@
       .dropdown-selected::after { content: '▼'; font-size: 0.6rem; transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); opacity: 0.7; margin-left: 10px; }
       .dropdown-selected:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); }
       
-      /* Open State */
       .custom-dropdown.open .dropdown-selected { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.3); transform: translateY(0); }
       .custom-dropdown.open .dropdown-selected::after { transform: rotate(180deg); opacity: 1; color: var(--accent); }
       
-      /* Dropdown List */
       .dropdown-list { 
         position: absolute; top: calc(100% + 10px); left: 0; right: 0; 
         background: var(--input-bg); border-radius: 12px; border: 1px solid var(--input-border); 
@@ -382,15 +377,17 @@
 
         const BREAK_INTERVAL_SECONDS = 20 * 60;
         const AVERAGE_IRIS_SIZE_MM = 11.7;
-        const FOCAL_LENGTH = 600;
         const GAUGE_SCALE_CM = 100; 
         const HEAD_TILT_THRESHOLD_DEGREES = 12; 
 
+        // Ergonomics definitions with dynamic focal length compensation
+        // Phones typically have wider FOV (approx 500px focal length equivalent here)
+        // Laptops/Monitors typically have narrower FOV (approx 600px focal length equivalent here)
         const ergonomics = {
-          phone: { tooClose: 30, optimalMin: 40 },
-          laptop: { tooClose: 40, optimalMin: 50 },
-          monitor_small: { tooClose: 50, optimalMin: 60 },
-          monitor_large: { tooClose: 60, optimalMin: 70 }
+          phone: { tooClose: 30, optimalMin: 40, focalLength: 480 },
+          laptop: { tooClose: 40, optimalMin: 50, focalLength: 600 },
+          monitor_small: { tooClose: 50, optimalMin: 60, focalLength: 600 },
+          monitor_large: { tooClose: 60, optimalMin: 70, focalLength: 600 }
         };
 
         // --- Custom Dropdown Logic ---
@@ -756,7 +753,13 @@
             const headTiltAngle = Math.abs(Math.atan2(eyeDy, eyeDx) * (180 / Math.PI));
 
             if (irisWidthPixels > 0) {
-              const rawDistanceCm = ((FOCAL_LENGTH * AVERAGE_IRIS_SIZE_MM) / irisWidthPixels) / 10;
+              
+              // Extract the dynamic focal length based on the current active device
+              const limits = ergonomics[currentScreenSize];
+              const dynamicFocalLength = limits.focalLength;
+              
+              // Apply dynamic focal length to calculation
+              const rawDistanceCm = ((dynamicFocalLength * AVERAGE_IRIS_SIZE_MM) / irisWidthPixels) / 10;
 
               if (smoothedDistance === null) {
                 smoothedDistance = rawDistanceCm;
@@ -765,7 +768,6 @@
                 smoothedDistance = alpha * rawDistanceCm + (1 - alpha) * smoothedDistance;
               }
 
-              const limits = ergonomics[currentScreenSize];
               const fillPct = Math.min((smoothedDistance / GAUGE_SCALE_CM) * 100, 100);
               gaugeFill.setAttribute('stroke-dasharray', `${fillPct}, 100`);
               
